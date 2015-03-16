@@ -32,7 +32,7 @@ function logException(ex) {
 }
 
 //== Register menu action
-GM_registerMenuCommand("Set Draft Order 1-100", setDraftOrder);
+GM_registerMenuCommand("Set Draft Order", setDraftOrder);
 
 //== Main
 function setDraftOrder() {
@@ -47,7 +47,8 @@ function getPlayers() {
 		url : priceGuideURL,
 		onload : function (responseDetails) {
 			buildPlayersHash(responseDetails.responseText);
-            populatePrices();			
+            console.log("calling populatePrices...");
+			populatePrices(50);			
 		},
 		onerror : function (responseDetails) {
 			console.log("bad things happened...");
@@ -84,15 +85,19 @@ function buildPlayersHash(playersCSV) {
 	}
 }
 
-function populatePrices() {
+function populatePrices(stopAt) {
 	var playerMatch = /.*sports\.yahoo\.com\/mlb\/players\/(\d\d\d\d)$/;
-	var blockCount = 100;
-	var stopAt = 100;
+	var blockCount = 50;
 	
+	console.log("inside populatePrices, stopAt: " + stopAt);
 	try {
+		if(stopAt > 800) {
+			console.log("stopping....");
+			return;
+		}
+		
 		var sortedPlayersDesc = players.sort(playerPriceSortDesc);
 		var filteredList = sortedPlayersDesc.slice(stopAt-blockCount, stopAt); 
-		
 		$.each(filteredList, function (index, player) {
 			//console.log("player.id: " + player.id + " || price: " + player.Price + " || index: " + index);
 			$("#all_player_list")
@@ -101,6 +106,7 @@ function populatePrices() {
 				.children("span:nth-child(2)")
 				.trigger( "click" );
 		});
+		setTimeout(populatePrices(stopAt+blockCount), 5000);
 	} catch (ex) {
 		logException(ex);
 	}
