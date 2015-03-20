@@ -4,11 +4,11 @@
 // @copyright      	2012-13, Eric Neunaber, Mays Copeland (http://www.lastplayerpicked.com) and Bert Sanders
 // @include         http://baseball.fantasysports.yahoo.com/b1/*/*/editprerank*
 // @grant           GM_xmlhttpRequest
-// @grant			GM_registerMenuCommand
-// @require  	    http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.1.min.js
+// @grant           GM_registerMenuCommand
+// @require         http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.1.min.js
+// @require         http://cdnjs.cloudflare.com/ajax/libs/q.js/0.9.2/q.js
 // ==/UserScript==
 var priceGuideURL = "http://priceguide.herokuapp.com/index.php?t=14&l=MLB&m=260&b=1&ds=15E&dis=500&spl=&hs=70&ps=30&R=Y&RBI=Y&OBP=Y&BB=Y&TB=Y&ERA=Y&WHIP=Y&PHR=Y&K9=Y&KBB=Y&IP=Y&C=1&1B=1&2B=1&3B=1&SS=1&OF=0&LF=1&CF=1&RF=1&CI=0&MI=0&IF=0&Util=1&mg=10&SP=6&RP=3&P=0&ms=5&mr=5&o=S";
-var players = new Array();
 
 //== Utility functions
 function PlayerClass(_id, _price) {
@@ -32,32 +32,44 @@ function logException(ex) {
 }
 
 //== Register menu action
-GM_registerMenuCommand("Set Draft Order", setDraftOrder);
+GM_registerMenuCommand("Set Draft Order", main);
 
 //== Main
-function setDraftOrder() {
-	//23 clicks
-	getPlayers();
+function main(){
+    console.log("main...");
+	getPlayers()
+	.then(buildPlayersHash)
+	.then(populatePrices)
+	.fail(logException)
+	.done();
 }
 
-function getPlayers() {
-	console.log("Begin fetching player data");
-	GM_xmlhttpRequest({
-		method : 'GET',
-		url : priceGuideURL,
-		onload : function (responseDetails) {
-			buildPlayersHash(responseDetails.responseText);
-            console.log("calling populatePrices...");
-			populatePrices(50);			
-		},
-		onerror : function (responseDetails) {
-			console.log("bad things happened...");
-		}
-	});
+function getPlayers(){
+    console.log("getPlayers...");
+	var deferred = Q.defer();
+    try {
+        GM_xmlhttpRequest({
+            method : 'GET',
+            url : priceGuideURL,
+            onload : function (data) {
+                console.log("calling populatePrices...");                
+                deferred.resolve(data);		
+            },
+            onerror : function (ex) {
+                deferred.reject(ex);
+            }
+        });	
+    } catch (ex) {
+		deferred.reject(ex);
+	}
+	return deferred.promise;
 }
 
 function buildPlayersHash(playersCSV) {
-	var playerValues = playersCSV.split("\n");
+	var deferred = Q.defer();
+	var players = new Array();
+	
+	var playerValues = playersCSV.response.split("\n");
 	var dollarValueIndex = 3;
 	var yahooPlayerIdIndex = 0;
 
@@ -79,35 +91,44 @@ function buildPlayersHash(playersCSV) {
 				console.log("playerID: " + player[0] + " || value: " + dollarValue);
 			}
 			*/
+			deferred.resolve(players);
 		}
 	} catch (ex) {
-		logException(ex);
+		deferred.reject(ex);
 	}
+	return deferred.promise;
 }
 
-function populatePrices(stopAt) {
+function populatePrices(players) {
 	var playerMatch = /.*sports\.yahoo\.com\/mlb\/players\/(\d\d\d\d)$/;
-	var blockCount = 50;
-	
-	console.log("inside populatePrices, stopAt: " + stopAt);
+	var stopAt = 50;
+	var deferred = Q.defer();
 	try {
-		if(stopAt > 800) {
-			console.log("stopping....");
-			return;
-		}
-		
-		var sortedPlayersDesc = players.sort(playerPriceSortDesc);
-		var filteredList = sortedPlayersDesc.slice(stopAt-blockCount, stopAt); 
-		$.each(filteredList, function (index, player) {
-			//console.log("player.id: " + player.id + " || price: " + player.Price + " || index: " + index);
-			$("#all_player_list")
-				.find("div[data-playerid="+ player.Id +"]")
-				.children("div")
-				.children("span:nth-child(2)")
-				.trigger( "click" );
-		});
-		setTimeout(populatePrices(stopAt+blockCount), 5000);
+		movePlayers(players, stopAt);
+		deferred.resolve();
 	} catch (ex) {
-		logException(ex);
+		deferred.reject(ex);
 	}
+	return deferred.promise;
+}
+
+function movePlayers(players, stopAt){
+	var blockCount = 50;
+	console.log("stopAt: " + stopAt);
+	if(stopAt > 800) {
+		console.log("stopping....");
+		return;
+	}
+
+	var sortedPlayersDesc = players.sort(playerPriceSortDesc);
+	var filteredList = sortedPlayersDesc.slice(stopAt-blockCount, stopAt); 
+	$.each(filteredList, function (index, player) {
+		//console.log("player.id: " + player.id + " || price: " + player.Price + " || index: " + index);
+		$("#all_player_list")
+			.find("div[data-playerid="+ player.Id +"]")
+			.children("div")
+			.children("span:nth-child(2)")
+			.trigger( "click" );
+	});
+	setTimeout(movePlayers(players, stopAt+blockCount), 5000);	
 }
