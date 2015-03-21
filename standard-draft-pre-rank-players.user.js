@@ -51,70 +51,52 @@ function getPlayers(){
         GM_xmlhttpRequest({
             method : 'GET',
             url : priceGuideURL,
-            onload : function (data) {
-                console.log("calling populatePrices...");                
-                deferred.resolve(data);		
-            },
-            onerror : function (ex) {
-                deferred.reject(ex);
-            }
+            onload : deferred.resolve,
+            onerror : deferred.reject
         });	
     } catch (ex) {
 		deferred.reject(ex);
 	}
 	return deferred.promise;
-}
+}re
 
 function buildPlayersHash(playersCSV) {
-	var deferred = Q.defer();
 	var players = new Array();
 	
 	var playerValues = playersCSV.response.split("\n");
 	var dollarValueIndex = 3;
 	var yahooPlayerIdIndex = 0;
 
-	try {
-		for (var i = 0; i < playerValues.length - 1; i++) {
-			var player = playerValues[i].split(",");
-			var dollarValue = 0;
+    for (var i = 0; i < playerValues.length - 1; i++) {
+        var player = playerValues[i].split(",");
+        var dollarValue = 0;
 
-			if (!isNaN(player[dollarValueIndex])) {
-				dollarValue = Number(player[dollarValueIndex]).toFixed(0);
-			}
+        if (!isNaN(player[dollarValueIndex])) {
+            dollarValue = Number(player[dollarValueIndex]).toFixed(0);
+        }
 
-			if (player[yahooPlayerIdIndex] != '') {
-				players.push(new PlayerClass(player[yahooPlayerIdIndex], dollarValue));
-			}
+        if (player[yahooPlayerIdIndex] != '') {
+            players.push(new PlayerClass(player[yahooPlayerIdIndex], dollarValue));
+        }
 
-			/*
-			if (players.length <= 10) {
-				console.log("playerID: " + player[0] + " || value: " + dollarValue);
-			}
-			*/
-			deferred.resolve(players);
-		}
-	} catch (ex) {
-		deferred.reject(ex);
-	}
-	return deferred.promise;
+        /*
+        if (players.length <= 10) {
+            console.log("playerID: " + player[0] + " || value: " + dollarValue);
+        }
+        */
+    }
+	return players;
 }
 
 function populatePrices(players) {
 	var playerMatch = /.*sports\.yahoo\.com\/mlb\/players\/(\d\d\d\d)$/;
 	var stopAt = 50;
-	var deferred = Q.defer();
-	try {
-		movePlayers(players, stopAt);
-		deferred.resolve();
-	} catch (ex) {
-		deferred.reject(ex);
-	}
-	return deferred.promise;
+	movePlayers(players, stopAt);
 }
 
 function movePlayers(players, stopAt){
 	var blockCount = 50;
-	console.log("stopAt: " + stopAt);
+	//console.log("stopAt: " + stopAt);
 	if(stopAt > 800) {
 		console.log("stopping....");
 		return;
